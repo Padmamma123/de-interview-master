@@ -16,7 +16,6 @@ import LightbulbIcon from "@mui/icons-material/Lightbulb";
 import SchoolIcon from "@mui/icons-material/School";
 import StepsIcon from "@mui/icons-material/Timeline";
 import WorkIcon from "@mui/icons-material/Work";
-import mermaid from "mermaid";
 
 export type VisualLesson = {
   title: string;
@@ -69,31 +68,37 @@ function MermaidDiagram({ chart }: { chart: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "dark",
-      securityLevel: "loose"
-    });
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!chart.trim() || !containerRef.current) {
-      return;
-    }
+    async function renderDiagram() {
+      if (!chart.trim() || !containerRef.current) {
+        return;
+      }
 
-    const renderId = `lesson-diagram-${Math.random().toString(36).slice(2)}`;
-    mermaid
-      .render(renderId, chart)
-      .then(({ svg }) => {
-        if (containerRef.current) {
+      try {
+        const { default: mermaid } = await import("mermaid");
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "dark",
+          securityLevel: "loose"
+        });
+
+        const renderId = `lesson-diagram-${Math.random().toString(36).slice(2)}`;
+        const { svg } = await mermaid.render(renderId, chart);
+        if (!cancelled && containerRef.current) {
           containerRef.current.innerHTML = svg;
         }
-      })
-      .catch(() => {
-        if (containerRef.current) {
+      } catch {
+        if (!cancelled && containerRef.current) {
           containerRef.current.innerHTML = `<pre style="white-space:pre-wrap;font-size:12px">${chart}</pre>`;
         }
-      });
+      }
+    }
+
+    renderDiagram();
+    return () => {
+      cancelled = true;
+    };
   }, [chart]);
 
   return (
@@ -136,7 +141,7 @@ export default function VisualLessonView({ lesson }: { lesson: VisualLesson }) {
 
       <LessonSection icon={<StepsIcon color="success" />} title="Steps (tiny bites)" color="#81c784" delay={300}>
         <List dense component="ol" sx={{ pl: 2, listStyleType: "decimal", "& .MuiListItem-root": { display: "list-item" } }}>
-          {lesson.steps.map((step, index) => (
+          {(lesson.steps ?? []).map((step, index) => (
             <ListItem key={index} disablePadding>
               <ListItemText primary={step} />
             </ListItem>

@@ -107,14 +107,24 @@ internal sealed class GroqAiClient(IHttpClientFactory httpClientFactory, IConfig
             return fenced.Groups[1].Value.Trim();
         }
 
-        var arrayStart = content.IndexOf('[');
-        var arrayEnd = content.LastIndexOf(']');
-        if (arrayStart >= 0 && arrayEnd > arrayStart)
+        var trimmed = content.Trim();
+
+        // Prefer the outer JSON object so nested arrays (e.g. "steps": [...]) are not extracted alone.
+        var objectStart = trimmed.IndexOf('{');
+        var objectEnd = trimmed.LastIndexOf('}');
+        if (objectStart >= 0 && objectEnd > objectStart)
         {
-            return content[arrayStart..(arrayEnd + 1)];
+            return trimmed[objectStart..(objectEnd + 1)];
         }
 
-        return content.Trim();
+        var arrayStart = trimmed.IndexOf('[');
+        var arrayEnd = trimmed.LastIndexOf(']');
+        if (arrayStart >= 0 && arrayEnd > arrayStart)
+        {
+            return trimmed[arrayStart..(arrayEnd + 1)];
+        }
+
+        return trimmed;
     }
 }
 
