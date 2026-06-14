@@ -50,6 +50,7 @@ app.UseSwaggerUI();
 
 app.UseCors("frontend");
 app.MapControllers();
+app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.Run();
 

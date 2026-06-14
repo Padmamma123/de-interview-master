@@ -18,7 +18,9 @@ export default function ChatAssistantPage() {
       const response = await askAssistant("demo-user", question, topic);
       setAnswer(response.answer);
     } catch {
-      setError("Failed to get a response. Check that the backend is running.");
+      setError(
+        "Failed to get a response. The backend may be waking up (free tier takes up to 60s). Wait a moment and try again."
+      );
     } finally {
       setLoading(false);
     }

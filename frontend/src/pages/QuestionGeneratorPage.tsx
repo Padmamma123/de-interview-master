@@ -63,7 +63,9 @@ export default function QuestionGeneratorPage() {
       });
       setResult(Array.isArray(data) ? data : []);
     } catch {
-      setError("Failed to generate questions. Check that the backend is running.");
+      setError(
+        "Failed to generate questions. The backend may be waking up (free tier takes up to 60s). Wait a moment and try again."
+      );
       setResult([]);
     } finally {
       setLoading(false);
