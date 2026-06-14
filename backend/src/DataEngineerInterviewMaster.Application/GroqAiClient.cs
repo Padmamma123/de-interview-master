@@ -8,6 +8,29 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DataEngineerInterviewMaster.Application;
 
+internal static class GroqConfiguration
+{
+    public static string? ResolveApiKey(IConfiguration configuration) =>
+        FirstNonEmpty(
+            configuration["Groq:ApiKey"],
+            configuration["GROQ_API_KEY"],
+            Environment.GetEnvironmentVariable("Groq__ApiKey"),
+            Environment.GetEnvironmentVariable("GROQ_API_KEY"));
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+}
+
 public static class GroqDependencyInjection
 {
     public static IServiceCollection AddGroq(this IServiceCollection services, IConfiguration configuration)
@@ -15,7 +38,7 @@ public static class GroqDependencyInjection
         services.AddHttpClient("Groq", client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
-            var apiKey = configuration["Groq:ApiKey"];
+            var apiKey = GroqConfiguration.ResolveApiKey(configuration);
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -36,10 +59,11 @@ internal sealed class GroqAiClient(IHttpClientFactory httpClientFactory, IConfig
 
     public async Task<string> CompleteAsync(string prompt, CancellationToken ct = default, bool jsonMode = false)
     {
-        var apiKey = configuration["Groq:ApiKey"];
+        var apiKey = GroqConfiguration.ResolveApiKey(configuration);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException("Groq API key is not configured. Set Groq:ApiKey in appsettings or environment.");
+            throw new InvalidOperationException(
+                "Groq API key is not configured. Set Groq__ApiKey or GROQ_API_KEY in Render environment variables.");
         }
 
         var model = configuration["Groq:Model"] ?? "llama-3.1-8b-instant";
