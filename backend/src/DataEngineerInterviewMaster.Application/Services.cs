@@ -108,27 +108,85 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
             ]);
 }
 
+internal sealed class VisualLessonPayload
+{
+    public string? Title { get; set; }
+    public string? SimpleIdea { get; set; }
+    public string? PictureStory { get; set; }
+    public string? MermaidDiagram { get; set; }
+    public string[]? Steps { get; set; }
+    public string? MemoryTrick { get; set; }
+    public string? RealWorldExample { get; set; }
+    public string? InterviewTip { get; set; }
+}
+
 internal sealed class ChatAssistantService(GroqAiClient groq) : IChatAssistantService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public async Task<ChatResponse> AskAsync(ChatRequest request, CancellationToken ct = default)
     {
-        var prompt = $"""
-            You are an expert Data Engineering interview coach.
-            Topic: {request.Topic}
-            User request: {request.Question}
+        var prompt = $$"""
+            You teach Data Engineering to absolute beginners (explain like a 2nd grade student).
+            Topic: {{request.Topic}}
+            Question: {{request.Question}}
 
-            Format your response using clear lists:
-            - Use numbered lists (1., 2., 3.) for interview questions or sequential steps
-            - Use bullet lists (- item) for hints, trade-offs, pitfalls, and examples
-            - Keep each list item concise and interview-ready
+            Return JSON only with this exact shape:
+            {
+              "title": "short fun title",
+              "simpleIdea": "one sentence a child can understand",
+              "pictureStory": "a vivid story or scene the learner can picture in their mind (use everyday objects)",
+              "mermaidDiagram": "valid mermaid flowchart LR or graph TD with 3-6 nodes max, simple labels",
+              "steps": ["step 1", "step 2", "step 3"],
+              "memoryTrick": "a rhyme, acronym, or silly image trick to remember for days",
+              "realWorldExample": "where companies use this in real life",
+              "interviewTip": "one line for interview prep"
+            }
 
-            If the user asks to generate questions, return each question as a numbered list item.
-            Include hints and expected answer points as nested bullet lists under each question when helpful.
+            Rules:
+            - Use simple words, short sentences, friendly tone
+            - pictureStory must feel like watching a cartoon in your head
+            - mermaidDiagram must be valid mermaid syntax only (no markdown fences)
+            - steps must be 3-5 tiny actions
             """;
 
         try
         {
-            var answer = await groq.CompleteAsync(prompt, ct);
+            var content = await groq.CompleteAsync(prompt, ct, jsonMode: true);
+            var json = GroqAiClient.ExtractJsonPayload(content);
+            var parsed = JsonSerializer.Deserialize<VisualLessonPayload>(json, JsonOptions);
+
+            if (parsed is not null && !string.IsNullOrWhiteSpace(parsed.SimpleIdea))
+            {
+                var lesson = new VisualLesson(
+                    parsed.Title ?? request.Topic,
+                    parsed.SimpleIdea ?? "",
+                    parsed.PictureStory ?? "",
+                    parsed.MermaidDiagram ?? "flowchart LR\n  A[You ask] --> B[AI explains] --> C[You remember]",
+                    parsed.Steps ?? [],
+                    parsed.MemoryTrick ?? "",
+                    parsed.RealWorldExample ?? "",
+                    parsed.InterviewTip ?? "");
+
+                var summary = BuildSummary(lesson);
+                return new ChatResponse(summary, ["groq-visual"], lesson);
+            }
+        }
+        catch
+        {
+            // Fall back to plain text coaching response.
+        }
+
+        try
+        {
+            var fallbackPrompt = $"""
+                Explain "{request.Question}" about {request.Topic} like you are talking to a 2nd grader.
+                Use a picture story, numbered steps, and a memory trick. Keep it visual in words.
+                """;
+            var answer = await groq.CompleteAsync(fallbackPrompt, ct);
             return new ChatResponse(answer, ["groq"]);
         }
         catch (InvalidOperationException ex)
@@ -138,6 +196,9 @@ internal sealed class ChatAssistantService(GroqAiClient groq) : IChatAssistantSe
                 []);
         }
     }
+
+    private static string BuildSummary(VisualLesson lesson) =>
+        $"{lesson.Title}: {lesson.SimpleIdea}";
 }
 
 internal sealed class ScoringEngine : IScoringEngine

@@ -42,8 +42,25 @@ export type GenerateRequest = {
 export const generateQuestions = (payload: GenerateRequest) =>
   api.post("/questions/generate", payload).then((r) => r.data);
 
+export type VisualLesson = {
+  title: string;
+  simpleIdea: string;
+  pictureStory: string;
+  mermaidDiagram: string;
+  steps: string[];
+  memoryTrick: string;
+  realWorldExample: string;
+  interviewTip: string;
+};
+
+export type ChatResponse = {
+  answer: string;
+  sources: string[];
+  lesson?: VisualLesson | null;
+};
+
 export const askAssistant = (userId: string, question: string, topic: string) =>
-  api.post("/chat", { userId, question, topic }).then((r) => r.data);
+  api.post<ChatResponse>("/chat", { userId, question, topic }).then((r) => r.data);
 
 export const getDashboard = () => api.get("/analytics/dashboard").then((r) => r.data);
 

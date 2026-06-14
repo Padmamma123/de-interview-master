@@ -23,7 +23,18 @@ public record GeneratedQuestionDto(
     string[] ApproachComparisons);
 
 public record ChatRequest(string UserId, string Question, string Topic);
-public record ChatResponse(string Answer, string[] Sources);
+
+public record VisualLesson(
+    string Title,
+    string SimpleIdea,
+    string PictureStory,
+    string MermaidDiagram,
+    string[] Steps,
+    string MemoryTrick,
+    string RealWorldExample,
+    string InterviewTip);
+
+public record ChatResponse(string Answer, string[] Sources, VisualLesson? Lesson = null);
 
 public record MockInterviewAnswerRequest(
     Guid MockInterviewId,
