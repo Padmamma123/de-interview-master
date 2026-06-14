@@ -15,7 +15,9 @@ public static class GroqConfiguration
             configuration["Groq:ApiKey"],
             configuration["GROQ_API_KEY"],
             Environment.GetEnvironmentVariable("Groq__ApiKey"),
-            Environment.GetEnvironmentVariable("GROQ_API_KEY"));
+            Environment.GetEnvironmentVariable("GROQ_API_KEY"),
+            Environment.GetEnvironmentVariable("Groq_ApiKey"),
+            Environment.GetEnvironmentVariable("Groq_Apikey"));
 
     private static string? FirstNonEmpty(params string?[] values)
     {
