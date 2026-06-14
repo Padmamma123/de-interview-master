@@ -1,0 +1,29 @@
+name: Configure Render Groq Key
+
+on:
+  workflow_dispatch:
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set Groq key and redeploy backend
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          SERVICE_ID=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services?limit=50" | \
+            python3 -c "import sys,json; d=json.load(sys.stdin); print(next(x['service']['id'] for x in d if x['service']['name']=='deim-backend'))")
+
+          curl -s -X PUT \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://api.render.com/v1/services/${SERVICE_ID}/env-vars" \
+            -d "[{\"key\":\"Groq__ApiKey\",\"value\":\"${GROQ_API_KEY}\"},{\"key\":\"Groq__Model\",\"value\":\"llama-3.1-8b-instant\"}]"
+
+          curl -s -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://api.render.com/v1/services/${SERVICE_ID}/deploys" \
+            -d "{}"
