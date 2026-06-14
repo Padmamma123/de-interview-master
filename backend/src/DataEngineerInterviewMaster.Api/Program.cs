@@ -52,5 +52,10 @@ app.UseCors("frontend");
 app.MapControllers();
 app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health/ai", (IConfiguration config) =>
+{
+    var configured = !string.IsNullOrWhiteSpace(GroqConfiguration.ResolveApiKey(config));
+    return Results.Ok(new { groqConfigured = configured, model = config["Groq:Model"] ?? "llama-3.1-8b-instant" });
+});
 app.Run();
 

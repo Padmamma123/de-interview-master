@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DataEngineerInterviewMaster.Application;
 
-internal static class GroqConfiguration
+public static class GroqConfiguration
 {
     public static string? ResolveApiKey(IConfiguration configuration) =>
         FirstNonEmpty(
