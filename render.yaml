@@ -31,6 +31,8 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      - key: VITE_API_URL
+        value: https://deim-backend.onrender.com/api
       - key: BACKEND_HOST
         fromService:
           type: web

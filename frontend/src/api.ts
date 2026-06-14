@@ -1,7 +1,33 @@
 import axios from "axios";
 
+function normalizeBackendHost(rawHost?: string) {
+  const host = (rawHost || "deim-backend.onrender.com").trim();
+  if (host.includes(".")) {
+    return host;
+  }
+  return `${host}.onrender.com`;
+}
+
+function resolveApiBaseUrl() {
+  const configured = import.meta.env.VITE_API_URL as string | undefined;
+  if (configured?.includes(".onrender.com")) {
+    return configured;
+  }
+
+  const backendHost = normalizeBackendHost(import.meta.env.BACKEND_HOST as string | undefined);
+  if (import.meta.env.BACKEND_HOST || import.meta.env.PROD) {
+    return `https://${backendHost}/api`;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname.includes("onrender.com")) {
+    return "https://deim-backend.onrender.com/api";
+  }
+
+  return configured ?? "http://localhost:8080/api";
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8080/api",
+  baseURL: resolveApiBaseUrl(),
   timeout: 120000
 });
 
