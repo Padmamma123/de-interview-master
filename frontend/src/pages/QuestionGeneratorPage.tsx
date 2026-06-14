@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import DownloadIcon from "@mui/icons-material/Download";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import {
   Alert,
   Box,
@@ -17,6 +19,13 @@ import {
 } from "@mui/material";
 import { generateQuestions } from "../api";
 import { StringList } from "../components/FormattedList";
+import {
+  appendQuestions,
+  downloadQuestionsExcel,
+  loadQuestionBank,
+  saveQuestionBank,
+  type GeneratedQuestion
+} from "../utils/questionBank";
 
 const topics = [
   "SQL", "Databricks", "GitHub", "Azure Data Factory", "Microsoft Fabric", "GenAI", "Vector Databases", "LangChain",
@@ -29,26 +38,22 @@ const difficulty = ["Easy", "Medium", "Hard", "Architect"];
 const experience = ["Fresher", "2-4 Years", "5-8 Years", "8-12 Years", "12+ Years"];
 const types = ["Conceptual", "Coding", "Scenario Based", "Real Time Production", "Troubleshooting", "Optimization", "Architecture", "Leadership"];
 
-type GeneratedQuestion = {
-  id?: string;
-  question?: string;
-  expectedAnswer?: string;
-  hints?: string[];
-  commonMistakes?: string[];
-  followUpQuestions?: string[];
-  realWorldUseCases?: string[];
-  references?: string[];
-  approachComparisons?: string[];
-};
-
 export default function QuestionGeneratorPage() {
   const [topic, setTopic] = useState("SQL");
   const [level, setLevel] = useState("12+ Years");
   const [diff, setDiff] = useState("Hard");
   const [qType, setQType] = useState("Real Time Production");
-  const [result, setResult] = useState<GeneratedQuestion[]>([]);
+  const [allQuestions, setAllQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setAllQuestions(loadQuestionBank());
+  }, []);
+
+  useEffect(() => {
+    saveQuestionBank(allQuestions);
+  }, [allQuestions]);
 
   const handleGenerate = async () => {
     setError("");
@@ -61,15 +66,27 @@ export default function QuestionGeneratorPage() {
         questionType: qType,
         count: 5
       });
-      setResult(Array.isArray(data) ? data : []);
+      const incoming = Array.isArray(data) ? data : [];
+      setAllQuestions((current) => appendQuestions(current, incoming));
     } catch {
       setError(
         "Failed to generate questions. The backend may be waking up (free tier takes up to 60s). Wait a moment and try again."
       );
-      setResult([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownload = async () => {
+    if (allQuestions.length === 0) {
+      return;
+    }
+    await downloadQuestionsExcel(allQuestions);
+  };
+
+  const handleClear = () => {
+    setAllQuestions([]);
+    saveQuestionBank([]);
   };
 
   return (
@@ -99,11 +116,28 @@ export default function QuestionGeneratorPage() {
             </TextField>
           </Grid>
         </Grid>
-        <Box sx={{ mt: 2 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
           <Button variant="contained" onClick={handleGenerate} disabled={loading}>
             {loading ? "Generating..." : "Generate Questions"}
           </Button>
-        </Box>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={allQuestions.length === 0 || loading}
+          >
+            Download Excel ({allQuestions.length})
+          </Button>
+          <Button
+            variant="text"
+            color="error"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={handleClear}
+            disabled={allQuestions.length === 0 || loading}
+          >
+            Clear All
+          </Button>
+        </Stack>
       </Paper>
 
       {loading && (
@@ -113,18 +147,23 @@ export default function QuestionGeneratorPage() {
         </Stack>
       )}
 
-      {!loading && result.length === 0 && (
-        <Alert severity="info">Click Generate Questions to see AI-generated interview questions here.</Alert>
+      {!loading && allQuestions.length === 0 && (
+        <Alert severity="info">
+          Click Generate Questions to build your question bank. Every new batch is saved here and included in the Excel download.
+        </Alert>
       )}
 
-      {!loading && result.length > 0 && (
+      {!loading && allQuestions.length > 0 && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Generated Questions ({result.length})
+            Question Bank ({allQuestions.length} total)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            New questions are added each time you click Generate. Download the full list anytime as an Excel file.
           </Typography>
           <List component="ol" sx={{ pl: 2, listStyleType: "decimal", "& > .MuiListItem-root": { display: "list-item" } }}>
-            {result.map((q, idx) => (
-              <ListItem key={q.id ?? idx} alignItems="flex-start" sx={{ flexDirection: "column", alignItems: "stretch", py: 2 }}>
+            {[...allQuestions].reverse().map((q, idx) => (
+              <ListItem key={`${q.id ?? q.question}-${idx}`} alignItems="flex-start" sx={{ flexDirection: "column", alignItems: "stretch", py: 2 }}>
                 <ListItemText
                   primary={
                     <Typography variant="subtitle1" fontWeight={600}>
@@ -133,6 +172,10 @@ export default function QuestionGeneratorPage() {
                   }
                   secondary={
                     <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                        {[q.topic, q.difficulty, q.experienceLevel, q.questionType].filter(Boolean).join(" · ")}
+                        {q.savedAt ? ` · Saved ${new Date(q.savedAt).toLocaleString()}` : ""}
+                      </Typography>
                       {q.expectedAnswer && (
                         <Typography variant="body2" sx={{ mb: 1 }}>
                           <strong>Expected Answer:</strong> {q.expectedAnswer}
@@ -147,7 +190,7 @@ export default function QuestionGeneratorPage() {
                     </Box>
                   }
                 />
-                {idx < result.length - 1 && <Divider sx={{ mt: 2, width: "100%" }} />}
+                {idx < allQuestions.length - 1 && <Divider sx={{ mt: 2, width: "100%" }} />}
               </ListItem>
             ))}
           </List>
