@@ -1,0 +1,38 @@
+# Render.com free-tier blueprint
+# Deploy: push to GitHub, then https://dashboard.render.com/blueprints -> New Blueprint Instance
+
+services:
+  - type: web
+    name: deim-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        value: Host=localhost;Port=5432;Database=de_interview_master;Username=postgres;Password=postgres
+      - key: Groq__Model
+        value: llama-3.1-8b-instant
+      - key: Groq__ApiKey
+        sync: false
+
+  - type: web
+    name: deim-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build:render
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          type: web
+          name: deim-backend
+          property: host

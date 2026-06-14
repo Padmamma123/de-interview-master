@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: deim-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: de_interview_master
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed_topics.sql:/docker-entrypoint-initdb.d/02-seed-topics.sql
+
+  chromadb:
+    image: chromadb/chroma:0.5.5
+    container_name: deim-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+  rag-service:
+    build:
+      context: ./ai-rag-service
+    container_name: deim-rag-service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - CHAT_MODEL=gpt-4o-mini
+    depends_on:
+      - chromadb
+    ports:
+      - "8001:8001"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: deim-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=de_interview_master;Username=postgres;Password=postgres
+      - Jwt__Issuer=DataEngineerInterviewMaster
+      - Jwt__Audience=DataEngineerInterviewMaster.Users
+      - Jwt__Key=SuperLongDevelopmentJwtKeyReplaceInProd
+      - GoogleAuth__ClientId=${GOOGLE_CLIENT_ID}
+      - GoogleAuth__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - AiService__BaseUrl=http://rag-service:8001
+      - OpenAI__ApiKey=${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - rag-service
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: deim-frontend
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:
+  chroma_data:
+
