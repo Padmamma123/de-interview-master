@@ -1,4 +1,5 @@
 import { Box, List, ListItem, ListItemText, Typography } from "@mui/material";
+import { normalizeFollowUps, type GeneratedQuestion } from "../utils/questionBank";
 
 type Block =
   | { type: "paragraph"; text: string }
@@ -121,8 +122,29 @@ export default function FormattedList({ text, emptyLabel = "No response yet." }:
   );
 }
 
-export function StringList({ title, items }: { title: string; items?: string[] }) {
-  if (!items?.length) {
+function toDisplayString(item: unknown): string {
+  if (typeof item === "string") {
+    return item;
+  }
+
+  if (item && typeof item === "object") {
+    const record = item as Record<string, unknown>;
+    const question = String(record.question ?? record.Question ?? "").trim();
+    const answer = String(record.answer ?? record.Answer ?? "").trim();
+    if (question && answer) {
+      return `${question} — ${answer}`;
+    }
+    if (question) {
+      return question;
+    }
+  }
+
+  return "";
+}
+
+export function StringList({ title, items }: { title: string; items?: unknown[] }) {
+  const strings = (items ?? []).map(toDisplayString).filter(Boolean);
+  if (!strings.length) {
     return null;
   }
 
@@ -132,9 +154,44 @@ export function StringList({ title, items }: { title: string; items?: string[] }
         {title}
       </Typography>
       <List dense component="ul" sx={{ pl: 2, listStyleType: "disc", "& .MuiListItem-root": { display: "list-item", py: 0.25 } }}>
-        {items.map((item, index) => (
+        {strings.map((item, index) => (
           <ListItem key={index} disablePadding>
             <ListItemText primary={item} />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
+}
+
+export function FollowUpList({ items }: { items?: GeneratedQuestion["followUpQuestions"] }) {
+  const followUps = normalizeFollowUps(items);
+  if (!followUps.length) {
+    return null;
+  }
+
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        Follow-up Questions & Answers
+      </Typography>
+      <List dense component="ol" sx={{ pl: 2, listStyleType: "decimal", "& .MuiListItem-root": { display: "list-item", py: 0.5 } }}>
+        {followUps.map((item, index) => (
+          <ListItem key={index} disablePadding alignItems="flex-start" sx={{ flexDirection: "column", alignItems: "stretch" }}>
+            <ListItemText
+              primary={
+                <Typography variant="body2" fontWeight={600}>
+                  {item.question}
+                </Typography>
+              }
+              secondary={
+                item.answer ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <strong>Answer:</strong> {item.answer}
+                  </Typography>
+                ) : null
+              }
+            />
           </ListItem>
         ))}
       </List>

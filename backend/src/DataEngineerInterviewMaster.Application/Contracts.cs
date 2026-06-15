@@ -7,6 +7,8 @@ public record GenerateQuestionsRequest(
     string QuestionType,
     int Count);
 
+public record FollowUpQa(string Question, string Answer);
+
 public record GeneratedQuestionDto(
     Guid Id,
     string Topic,
@@ -17,9 +19,7 @@ public record GeneratedQuestionDto(
     string[] Hints,
     string ExpectedAnswer,
     string[] CommonMistakes,
-    string[] FollowUpQuestions,
-    string[] RealWorldUseCases,
-    string[] References,
+    FollowUpQa[] FollowUpQuestions,
     string[] ApproachComparisons);
 
 public record ChatRequest(string UserId, string Question, string Topic);

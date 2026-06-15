@@ -18,7 +18,7 @@ import {
   Typography
 } from "@mui/material";
 import { generateQuestions } from "../api";
-import { StringList } from "../components/FormattedList";
+import { StringList, FollowUpList } from "../components/FormattedList";
 import {
   appendQuestions,
   downloadQuestionsExcel,
@@ -206,9 +206,7 @@ export default function QuestionGeneratorPage() {
                       )}
                       <StringList title="Hints" items={q.hints} />
                       <StringList title="Common Mistakes" items={q.commonMistakes} />
-                      <StringList title="Follow-up Questions" items={q.followUpQuestions} />
-                      <StringList title="Real-world Use Cases" items={q.realWorldUseCases} />
-                      <StringList title="References" items={q.references} />
+                      <FollowUpList items={q.followUpQuestions} />
                       <StringList title="Approach Comparisons" items={q.approachComparisons} />
                     </Box>
                   }

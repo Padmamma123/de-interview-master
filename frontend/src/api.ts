@@ -28,7 +28,7 @@ function resolveApiBaseUrl() {
 
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
-  timeout: 120000
+  timeout: 300000
 });
 
 export type GenerateRequest = {

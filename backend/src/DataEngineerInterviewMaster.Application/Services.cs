@@ -49,11 +49,12 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var produced = 0;
-        while (produced < count)
+        while (results.Count < count && produced < count * 2)
         {
-            var take = Math.Min(BatchSize, count - produced);
+            var take = Math.Min(BatchSize, count - results.Count);
+            var addedBefore = results.Count;
 
-            foreach (var item in await GenerateBatchAsync(request, produced, take, count, ct))
+            foreach (var item in await GenerateBatchAsync(request, results.Count, take, count, ct))
             {
                 if (item is null || string.IsNullOrWhiteSpace(item.Question))
                 {
@@ -67,9 +68,14 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
                 }
             }
 
-            produced += take;
+            produced += Math.Max(take, results.Count - addedBefore);
 
-            if (produced < count)
+            if (results.Count == addedBefore)
+            {
+                produced += 1;
+            }
+
+            if (results.Count < count)
             {
                 try
                 {
@@ -104,8 +110,8 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         var prompt = $$"""
             Return ONLY a JSON object with this exact shape:
             {"questions": [ { "question": "", "expectedAnswer": "", "hints": [],
-            "commonMistakes": [], "followUpQuestions": [], "realWorldUseCases": [],
-            "references": [], "approachComparisons": [] } ]}
+            "commonMistakes": [], "followUpQuestions": [ { "question": "", "answer": "" } ],
+            "approachComparisons": [] } ]}
 
             The "questions" array must contain exactly {{take}} unique data engineering interview questions.
             Topic: {{request.Topic}}
@@ -114,12 +120,12 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
             Question Type: {{request.QuestionType}}
             These are questions {{produced + 1}} to {{produced + take}} of {{count}} total; do not repeat questions.
             Every question must be specifically about {{request.Topic}}.
-            hints, commonMistakes, followUpQuestions, realWorldUseCases and references must each contain 2-4 strings.
+            hints and commonMistakes must each contain 2-4 strings.
+            followUpQuestions must contain 2-3 objects with question and answer fields.
             approachComparisons must contain exactly 4 strings.
             Keep questions aligned with recent 2025-2026 interview trends from LinkedIn, Medium, and GitHub:
             scenario-based troubleshooting, production reliability, governance/security, performance tuning, and cost control.
             Topic guidance: {{topicGuidance}}
-            references should prefer official docs/repos (e.g., Microsoft Learn, Databricks docs, Apache docs, dbt docs, GitHub repos).
             Respond with the JSON object only, no markdown or commentary.
             """;
 
@@ -251,10 +257,14 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
             item.Hints ?? [],
             item.ExpectedAnswer ?? "",
             item.CommonMistakes ?? [],
-            item.FollowUpQuestions ?? [],
-            item.RealWorldUseCases ?? [],
-            item.References ?? [],
+            MapFollowUps(item.FollowUpQuestions),
             item.ApproachComparisons ?? []);
+
+    private static FollowUpQa[] MapFollowUps(List<FollowUpQaPayload>? items) =>
+        items?
+            .Where(x => !string.IsNullOrWhiteSpace(x.Question))
+            .Select(x => new FollowUpQa(x.Question!.Trim(), x.Answer?.Trim() ?? ""))
+            .ToArray() ?? [];
 
     private static GeneratedQuestionDto BuildFallback(GenerateQuestionsRequest request) =>
         new(
@@ -267,9 +277,10 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
             ["Discuss batch vs streaming", "Cover fault tolerance and monitoring"],
             "Compare ETL, Spark, Kafka streaming, and event-driven architecture with trade-offs.",
             ["Ignoring partitioning", "No cost or SLA analysis"],
-            ["How do you monitor SLA breaches?", "How do you handle schema drift?"],
-            ["Large-scale clickstream analytics", "Enterprise data lake ingestion"],
-            ["Official docs", "Architecture blogs"],
+            [
+                new("How do you monitor SLA breaches?", "Track pipeline latency, freshness, and error-rate metrics with alerts tied to SLA thresholds."),
+                new("How do you handle schema drift?", "Use schema contracts, backward-compatible transforms, and automated validation before promotion.")
+            ],
             [
                 "Traditional ETL: lower complexity, limited scale",
                 "Spark batch: balanced cost and performance",

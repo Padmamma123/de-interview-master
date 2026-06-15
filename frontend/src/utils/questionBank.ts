@@ -1,3 +1,8 @@
+export type FollowUpQa = {
+  question: string;
+  answer: string;
+};
+
 export type GeneratedQuestion = {
   id?: string;
   topic?: string;
@@ -8,9 +13,7 @@ export type GeneratedQuestion = {
   expectedAnswer?: string;
   hints?: string[];
   commonMistakes?: string[];
-  followUpQuestions?: string[];
-  realWorldUseCases?: string[];
-  references?: string[];
+  followUpQuestions?: FollowUpQa[] | string[] | unknown[];
   approachComparisons?: string[];
   savedAt?: string;
 };
@@ -64,6 +67,36 @@ function joinList(items?: string[]) {
   return items?.length ? items.join("; ") : "";
 }
 
+export function normalizeFollowUps(items?: GeneratedQuestion["followUpQuestions"]): FollowUpQa[] {
+  if (!items?.length) {
+    return [];
+  }
+
+  return items.flatMap((item) => {
+    if (typeof item === "string") {
+      return item.trim() ? [{ question: item, answer: "" }] : [];
+    }
+
+    if (item && typeof item === "object") {
+      const record = item as Record<string, unknown>;
+      const question = String(record.question ?? record.Question ?? "").trim();
+      const answer = String(record.answer ?? record.Answer ?? "").trim();
+      if (question) {
+        return [{ question, answer }];
+      }
+    }
+
+    return [];
+  });
+}
+
+function joinFollowUps(items?: GeneratedQuestion["followUpQuestions"]) {
+  const normalized = normalizeFollowUps(items);
+  return normalized.length
+    ? normalized.map((item) => `Q: ${item.question} | A: ${item.answer}`).join("\n")
+    : "";
+}
+
 export async function downloadQuestionsExcel(questions: GeneratedQuestion[]) {
   const { utils, writeFile } = await import("xlsx");
 
@@ -78,9 +111,7 @@ export async function downloadQuestionsExcel(questions: GeneratedQuestion[]) {
     "Expected Answer": question.expectedAnswer ?? "",
     Hints: joinList(question.hints),
     "Common Mistakes": joinList(question.commonMistakes),
-    "Follow-up Questions": joinList(question.followUpQuestions),
-    "Real-world Use Cases": joinList(question.realWorldUseCases),
-    References: joinList(question.references),
+    "Follow-up Q&A": joinFollowUps(question.followUpQuestions),
     "Approach Comparisons": joinList(question.approachComparisons)
   }));
 
@@ -96,9 +127,7 @@ export async function downloadQuestionsExcel(questions: GeneratedQuestion[]) {
     { wch: 50 },
     { wch: 30 },
     { wch: 30 },
-    { wch: 30 },
-    { wch: 30 },
-    { wch: 24 },
+    { wch: 50 },
     { wch: 40 }
   ];
 

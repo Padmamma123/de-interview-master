@@ -171,6 +171,12 @@ internal sealed class GeneratedQuestionBatch
     public List<GeneratedQuestionPayload>? Questions { get; set; }
 }
 
+internal sealed class FollowUpQaPayload
+{
+    public string? Question { get; set; }
+    public string? Answer { get; set; }
+}
+
 internal sealed class GeneratedQuestionPayload
 {
     public string? Id { get; set; }
@@ -182,8 +188,6 @@ internal sealed class GeneratedQuestionPayload
     public string[]? Hints { get; set; }
     public string? ExpectedAnswer { get; set; }
     public string[]? CommonMistakes { get; set; }
-    public string[]? FollowUpQuestions { get; set; }
-    public string[]? RealWorldUseCases { get; set; }
-    public string[]? References { get; set; }
+    public List<FollowUpQaPayload>? FollowUpQuestions { get; set; }
     public string[]? ApproachComparisons { get; set; }
 }
