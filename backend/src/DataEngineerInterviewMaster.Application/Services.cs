@@ -24,13 +24,21 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         PropertyNameCaseInsensitive = true
     };
 
-    // Upper bound on how many questions a single request may produce.
-    private const int MaxQuestions = 50;
+    // Upper bound on how many questions a single request may produce. Kept at a
+    // value that is reliably achievable on Groq's free tier within the frontend's
+    // 120s request budget (small batches + pacing + retries).
+    private const int MaxQuestions = 20;
 
-    // Questions requested per AI call. Batching keeps the model output within a
-    // safe token budget while drastically reducing the number of round trips
-    // compared with one call per question.
-    private const int BatchSize = 8;
+    // Questions requested per AI call. Smaller batches keep each JSON response
+    // well within the model's output-token limit so it is never truncated into
+    // invalid JSON, while still reducing round trips versus one call per question.
+    private const int BatchSize = 5;
+
+    // Attempts per batch before giving up on that batch.
+    private const int MaxAttemptsPerBatch = 2;
+
+    // Pause between batches to avoid bursting into free-tier rate limits.
+    private static readonly TimeSpan BatchDelay = TimeSpan.FromMilliseconds(400);
 
     public async Task<IReadOnlyCollection<GeneratedQuestionDto>> GenerateAsync(
         GenerateQuestionsRequest request,
@@ -44,48 +52,38 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         while (produced < count)
         {
             var take = Math.Min(BatchSize, count - produced);
-            try
+
+            foreach (var item in await GenerateBatchAsync(request, produced, take, count, ct))
             {
-                var prompt = $$"""
-                    Return a JSON array of {{take}} distinct data engineering interview questions.
-                    Each array element is an object with these fields:
-                    question, expectedAnswer, hints, commonMistakes, followUpQuestions,
-                    realWorldUseCases, references, approachComparisons
-
-                    Topic: {{request.Topic}}
-                    Difficulty: {{request.Difficulty}}
-                    Experience: {{request.ExperienceLevel}}
-                    Question Type: {{request.QuestionType}}
-                    These are questions {{produced + 1}} to {{produced + take}} of {{count}} total.
-                    Every question must be unique and must not overlap with the others.
-                    hints, commonMistakes, followUpQuestions, realWorldUseCases and references
-                    must each contain 2-4 strings. approachComparisons must contain exactly 4 strings.
-                    Return ONLY the JSON array, with no surrounding prose or markdown.
-                    """;
-
-                var content = await groq.CompleteAsync(prompt, ct, jsonMode: false);
-                foreach (var item in ParseQuestions(content))
+                if (item is null || string.IsNullOrWhiteSpace(item.Question))
                 {
-                    if (item is null || string.IsNullOrWhiteSpace(item.Question))
-                    {
-                        continue;
-                    }
-
-                    var dto = MapQuestion(item, request);
-                    if (seen.Add(dto.Question.Trim().ToLowerInvariant()))
-                    {
-                        results.Add(dto);
-                    }
+                    continue;
                 }
-            }
-            catch
-            {
-                // Skip a failed batch but keep trying the remaining ones.
+
+                var dto = MapQuestion(item, request);
+                if (seen.Add(dto.Question.Trim().ToLowerInvariant()))
+                {
+                    results.Add(dto);
+                }
             }
 
             produced += take;
+
+            if (produced < count)
+            {
+                try
+                {
+                    await Task.Delay(BatchDelay, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
 
+        // Always return whatever we managed to build. Only fall back to a single
+        // canned question when every batch failed (e.g. AI unavailable).
         if (results.Count > 0)
         {
             return results;
@@ -94,9 +92,85 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         return [BuildFallback(request)];
     }
 
+    private async Task<List<GeneratedQuestionPayload>> GenerateBatchAsync(
+        GenerateQuestionsRequest request,
+        int produced,
+        int take,
+        int count,
+        CancellationToken ct)
+    {
+        var prompt = $$"""
+            Return ONLY a JSON object with this exact shape:
+            {"questions": [ { "question": "", "expectedAnswer": "", "hints": [],
+            "commonMistakes": [], "followUpQuestions": [], "realWorldUseCases": [],
+            "references": [], "approachComparisons": [] } ]}
+
+            The "questions" array must contain exactly {{take}} unique data engineering interview questions.
+            Topic: {{request.Topic}}
+            Difficulty: {{request.Difficulty}}
+            Experience: {{request.ExperienceLevel}}
+            Question Type: {{request.QuestionType}}
+            These are questions {{produced + 1}} to {{produced + take}} of {{count}} total; do not repeat questions.
+            Every question must be specifically about {{request.Topic}}.
+            hints, commonMistakes, followUpQuestions, realWorldUseCases and references must each contain 2-4 strings.
+            approachComparisons must contain exactly 4 strings.
+            Respond with the JSON object only, no markdown or commentary.
+            """;
+
+        for (var attempt = 0; attempt < MaxAttemptsPerBatch; attempt++)
+        {
+            try
+            {
+                var content = await groq.CompleteAsync(prompt, ct, jsonMode: true);
+                var parsed = ParseQuestions(content);
+                if (parsed.Count > 0)
+                {
+                    return parsed;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Transient failure (rate limit, truncated JSON). Back off and retry.
+            }
+
+            if (attempt + 1 < MaxAttemptsPerBatch)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(750 * (attempt + 1)), ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        return [];
+    }
+
     private static List<GeneratedQuestionPayload> ParseQuestions(string content)
     {
-        // Preferred shape: a JSON array of question objects.
+        // Preferred shape: a JSON object { "questions": [ ... ] } (enforced JSON mode).
+        try
+        {
+            var objectJson = GroqAiClient.ExtractJsonPayload(content);
+            var batch = JsonSerializer.Deserialize<GeneratedQuestionBatch>(objectJson, JsonOptions);
+            if (batch?.Questions is { Count: > 0 })
+            {
+                return batch.Questions;
+            }
+        }
+        catch
+        {
+            // Fall through to array parsing.
+        }
+
+        // Fallback: a bare JSON array of question objects.
         try
         {
             var arrayJson = GroqAiClient.ExtractJsonArrayPayload(content);
@@ -116,7 +190,7 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         {
             var objectJson = GroqAiClient.ExtractJsonPayload(content);
             var single = JsonSerializer.Deserialize<GeneratedQuestionPayload>(objectJson, JsonOptions);
-            if (single is not null)
+            if (single is not null && !string.IsNullOrWhiteSpace(single.Question))
             {
                 return [single];
             }

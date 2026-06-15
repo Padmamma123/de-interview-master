@@ -166,6 +166,11 @@ internal sealed class GroqMessage
     public string? Content { get; set; }
 }
 
+internal sealed class GeneratedQuestionBatch
+{
+    public List<GeneratedQuestionPayload>? Questions { get; set; }
+}
+
 internal sealed class GeneratedQuestionPayload
 {
     public string? Id { get; set; }

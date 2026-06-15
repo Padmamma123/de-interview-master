@@ -37,8 +37,8 @@ const topics = [
 const difficulty = ["Easy", "Medium", "Hard", "Architect"];
 const experience = ["Fresher", "2-4 Years", "5-8 Years", "8-12 Years", "12+ Years"];
 const types = ["Conceptual", "Coding", "Scenario Based", "Real Time Production", "Troubleshooting", "Optimization", "Architecture", "Leadership"];
-const counts = [5, 10, 20, 35, 50];
-const MAX_COUNT = 50;
+const counts = [5, 10, 15, 20];
+const MAX_COUNT = 20;
 
 export default function QuestionGeneratorPage() {
   const [topic, setTopic] = useState("SQL");

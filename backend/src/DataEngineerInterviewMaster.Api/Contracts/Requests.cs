@@ -9,7 +9,7 @@ public record GenerateQuestionsApiRequest(
     string Difficulty,
     string ExperienceLevel,
     string QuestionType,
-    int Count = 25);
+    int Count = 20);
 
 public record ChatApiRequest(string UserId, string Question, string Topic);
 public record MockEvaluateRequest(Guid MockInterviewId, Guid QuestionId, string Answer, int DurationSeconds);
