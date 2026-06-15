@@ -22,6 +22,8 @@ import { StringList, FollowUpList } from "../components/FormattedList";
 import {
   appendQuestions,
   downloadQuestionsExcel,
+  downloadQuestionsPdf,
+  downloadQuestionsWord,
   loadQuestionBank,
   saveQuestionBank,
   type GeneratedQuestion
@@ -83,11 +85,25 @@ export default function QuestionGeneratorPage() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownloadExcel = async () => {
     if (allQuestions.length === 0) {
       return;
     }
     await downloadQuestionsExcel(allQuestions);
+  };
+
+  const handleDownloadWord = async () => {
+    if (allQuestions.length === 0) {
+      return;
+    }
+    await downloadQuestionsWord(allQuestions);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (allQuestions.length === 0) {
+      return;
+    }
+    await downloadQuestionsPdf(allQuestions);
   };
 
   const handleClear = () => {
@@ -144,10 +160,26 @@ export default function QuestionGeneratorPage() {
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
-            onClick={handleDownload}
+            onClick={handleDownloadExcel}
             disabled={allQuestions.length === 0 || loading}
           >
-            Download Excel ({allQuestions.length})
+            Download Excel
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadWord}
+            disabled={allQuestions.length === 0 || loading}
+          >
+            Download Word
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadPdf}
+            disabled={allQuestions.length === 0 || loading}
+          >
+            Download PDF ({allQuestions.length})
           </Button>
           <Button
             variant="text"
