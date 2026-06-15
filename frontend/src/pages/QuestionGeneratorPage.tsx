@@ -28,10 +28,13 @@ import {
 } from "../utils/questionBank";
 
 const topics = [
-  "SQL", "Databricks", "GitHub", "Azure Data Factory", "Microsoft Fabric", "GenAI", "Vector Databases", "LangChain",
-  "Azure OpenAI", "RAG", "Prompt Engineering", "DevOps", "Terraform", "Bicep", "Azure DevOps", "CI/CD",
-  "Delta Lake", "Spark", "PySpark", "Lakehouse", "OneLake", "Unity Catalog", "Data Modeling", "Data Warehousing",
-  "Capstone Projects", "System Design", "Certifications"
+  "SQL", "Python", "Data Modeling", "Data Warehousing",
+  "Spark", "PySpark", "Databricks", "Delta Lake", "Unity Catalog", "Lakehouse",
+  "Structured Streaming", "Kafka", "CDC", "Airflow", "dbt", "Data Quality", "Data Observability",
+  "Azure Data Factory", "Azure Synapse", "Microsoft Fabric", "OneLake", "Event Hubs", "Azure OpenAI",
+  "CI/CD", "GitHub", "DevOps", "Terraform", "Bicep", "Cost Optimization", "Data Governance",
+  "RAG", "Vector Databases", "LangChain", "Prompt Engineering",
+  "Apache Iceberg", "Apache Hudi", "System Design", "Capstone Projects", "Certifications"
 ];
 
 const difficulty = ["Easy", "Medium", "Hard", "Architect"];

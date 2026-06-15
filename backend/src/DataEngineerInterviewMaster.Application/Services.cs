@@ -99,6 +99,8 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         int count,
         CancellationToken ct)
     {
+        var topicGuidance = BuildTopicGuidance(request.Topic);
+
         var prompt = $$"""
             Return ONLY a JSON object with this exact shape:
             {"questions": [ { "question": "", "expectedAnswer": "", "hints": [],
@@ -114,6 +116,10 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
             Every question must be specifically about {{request.Topic}}.
             hints, commonMistakes, followUpQuestions, realWorldUseCases and references must each contain 2-4 strings.
             approachComparisons must contain exactly 4 strings.
+            Keep questions aligned with recent 2025-2026 interview trends from LinkedIn, Medium, and GitHub:
+            scenario-based troubleshooting, production reliability, governance/security, performance tuning, and cost control.
+            Topic guidance: {{topicGuidance}}
+            references should prefer official docs/repos (e.g., Microsoft Learn, Databricks docs, Apache docs, dbt docs, GitHub repos).
             Respond with the JSON object only, no markdown or commentary.
             """;
 
@@ -201,6 +207,37 @@ internal sealed class QuestionGenerationService(GroqAiClient groq) : IQuestionGe
         }
 
         return [];
+    }
+
+    private static string BuildTopicGuidance(string topic)
+    {
+        var t = topic.Trim().ToLowerInvariant();
+        if (t.Contains("databricks") || t.Contains("spark") || t.Contains("delta"))
+        {
+            return "Include AQE, skew handling, OPTIMIZE/VACUUM, streaming checkpoints, DLT/Workflows, and Unity Catalog governance scenarios.";
+        }
+
+        if (t.Contains("fabric") || t.Contains("onelake") || t.Contains("synapse") || t.Contains("adf"))
+        {
+            return "Include Azure-native architecture choices, Event Hubs/ADF orchestration, Fabric vs Databricks trade-offs, and operational monitoring scenarios.";
+        }
+
+        if (t.Contains("sql") || t.Contains("model"))
+        {
+            return "Include window functions, SCD2, CDC merge logic, query plan/performance tuning, and schema evolution incidents.";
+        }
+
+        if (t.Contains("airflow") || t.Contains("dbt") || t.Contains("ci/cd") || t.Contains("github") || t.Contains("devops"))
+        {
+            return "Include deployment pipelines, testing strategy, rollback planning, lineage/docs, and data contract enforcement.";
+        }
+
+        if (t.Contains("governance") || t.Contains("quality") || t.Contains("observability") || t.Contains("cost"))
+        {
+            return "Include SLA/SLO metrics, alerting and incident response, PII controls, lineage/auditability, and cloud cost optimization actions.";
+        }
+
+        return "Prioritize production-ready, scenario-based, trade-off focused questions with measurable outcomes.";
     }
 
     private static GeneratedQuestionDto MapQuestion(GeneratedQuestionPayload item, GenerateQuestionsRequest request) =>
