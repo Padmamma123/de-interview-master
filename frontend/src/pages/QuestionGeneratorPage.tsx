@@ -37,12 +37,15 @@ const topics = [
 const difficulty = ["Easy", "Medium", "Hard", "Architect"];
 const experience = ["Fresher", "2-4 Years", "5-8 Years", "8-12 Years", "12+ Years"];
 const types = ["Conceptual", "Coding", "Scenario Based", "Real Time Production", "Troubleshooting", "Optimization", "Architecture", "Leadership"];
+const counts = [5, 10, 20, 35, 50];
+const MAX_COUNT = 50;
 
 export default function QuestionGeneratorPage() {
   const [topic, setTopic] = useState("SQL");
   const [level, setLevel] = useState("12+ Years");
   const [diff, setDiff] = useState("Hard");
   const [qType, setQType] = useState("Real Time Production");
+  const [count, setCount] = useState(MAX_COUNT);
   const [allQuestions, setAllQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,7 +67,7 @@ export default function QuestionGeneratorPage() {
         difficulty: diff,
         experienceLevel: level,
         questionType: qType,
-        count: 5
+        count
       });
       const incoming = Array.isArray(data) ? data : [];
       setAllQuestions((current) => appendQuestions(current, incoming));
@@ -115,6 +118,21 @@ export default function QuestionGeneratorPage() {
               {types.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
             </TextField>
           </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              select
+              fullWidth
+              label="Number of Questions"
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+            >
+              {counts.map((x) => (
+                <MenuItem key={x} value={x}>
+                  {x === MAX_COUNT ? `${x} (Maximum)` : x}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
         </Grid>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
           <Button variant="contained" onClick={handleGenerate} disabled={loading}>
@@ -143,7 +161,9 @@ export default function QuestionGeneratorPage() {
       {loading && (
         <Stack direction="row" spacing={1} alignItems="center">
           <CircularProgress size={20} />
-          <Typography color="text.secondary">Generating questions with AI...</Typography>
+          <Typography color="text.secondary">
+            Generating {count} question{count > 1 ? "s" : ""} with AI... (larger batches can take up to a minute)
+          </Typography>
         </Stack>
       )}
 

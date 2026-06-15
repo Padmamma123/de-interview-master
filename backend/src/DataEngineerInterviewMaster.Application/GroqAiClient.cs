@@ -126,6 +126,26 @@ internal sealed class GroqAiClient(IHttpClientFactory httpClientFactory, IConfig
 
         return trimmed;
     }
+
+    /// <summary>
+    /// Extracts the outermost JSON array from a model response. Use this when the
+    /// prompt asks for a batch of items (e.g. multiple questions) so the surrounding
+    /// "[ ... ]" is preserved instead of a single inner object.
+    /// </summary>
+    public static string ExtractJsonArrayPayload(string content)
+    {
+        var fenced = Regex.Match(content, @"```(?:json)?\s*([\s\S]*?)```", RegexOptions.IgnoreCase);
+        var text = (fenced.Success ? fenced.Groups[1].Value : content).Trim();
+
+        var arrayStart = text.IndexOf('[');
+        var arrayEnd = text.LastIndexOf(']');
+        if (arrayStart >= 0 && arrayEnd > arrayStart)
+        {
+            return text[arrayStart..(arrayEnd + 1)];
+        }
+
+        return text;
+    }
 }
 
 internal sealed class GroqChatResponse
